@@ -1108,8 +1108,7 @@
                     <div class='ladi-image'>
                         <div class="ladi-image-background"></div>
                     </div>
-                </div><a href="content.html" id="IMAGE21"
-                    class='ladi-element ladi-animation-hidden'>
+                </div><a href="content.html" id="IMAGE21" class='ladi-element ladi-animation-hidden'>
                     <div class='ladi-image'>
                         <div class="ladi-image-background"></div>
                     </div>
@@ -1220,6 +1219,26 @@
         integrity="sha512-L0ha0OXavK/8okipN9F8BtP84dg9DUhPERbBXzwI6dgTA55d2+yweo3pn5CSFYs45/r8md2+xvUPtTdvTNRfjA=="
         data-cf-beacon='{"version":"2024.11.0","token":"fea2cc797a5b4bb1bb52af239aa7f75c","r":1,"spa":2}'
         crossorigin="anonymous"></script>
+    <script>
+        (function () {
+            function applyGuestName() {
+                var name = new URLSearchParams(window.location.search).get('name');
+                if (!name) return;
+
+                name = name.trim().slice(0, 60); // giới hạn độ dài cho khỏi vỡ layout
+                if (!name) return;
+
+                var el = document.querySelector('#HEADLINE11 .ladi-headline');
+                if (el) el.textContent = name; // textContent để tránh chèn HTML/script
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', applyGuestName);
+            } else {
+                applyGuestName();
+            }
+        })();
+    </script>
 </body>
 
 </html><!--Publish time: Sat, 22 Aug 2026 02:47:07 GMT--><!--LadiPage build time: Fri, 21 Aug 2026 03:13:12 GMT-->
