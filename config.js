@@ -70,14 +70,14 @@ window.WEDDING_CONFIG = {
     thankyouBackground: "image/BAO_6183_ngang2.jpg",
 
     // Ảnh chân dung Chú rể & Cô dâu (phần giới thiệu)
-    groomPortrait: "image/BAO_8326.jpg",
-    bridePortrait: "image/BAO_6769.jpg",
+    groomPortrait: "image/BAO_6769.jpg",
+    bridePortrait: "image/BAO_8326.jpg",
 
     // Ảnh khung lồng ghép kép (SECTION21 / SECTION22)
     framedPhoto1: "image/BAO_7187.jpg",
     framedPhoto2: "image/BAO_6322.jpg",
     framedPhoto3: "image/BAO_8406.jpg",
-    framedPhotoMain: "image/BAO_6690_ngang.jpg",
+    framedPhotoMain: "image/BAO_6213_ngang.jpg",
 
     // Khung ảnh bộ 3 ghép góc (SECTION22)
     gridPhoto1: "image/BAO_6690.jpg",

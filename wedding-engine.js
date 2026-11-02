@@ -84,11 +84,11 @@ document.addEventListener("DOMContentLoaded", function () {
   // Tên ngắn & Tên đầy đủ
   setText("#HEADLINE165 .ladi-headline", cfg.groom.shortName);
   setText("#HEADLINE166 .ladi-headline", cfg.bride.shortName);
-  setText("#HEADLINE142 .ladi-headline", cfg.groom.shortName);
-  setText("#HEADLINE140 .ladi-headline", cfg.bride.shortName);
-  setText("#HEADLINE10 .ladi-headline", cfg.groom.fullName);
-  setText("#HEADLINE11 .ladi-headline", cfg.bride.fullName);
-  setText("#HEADLINE214 .ladi-headline", `${cfg.groom.shortName} & ${cfg.bride.shortName}`);
+  setText("#HEADLINE142 .ladi-headline", cfg.bride.shortName);
+  setText("#HEADLINE140 .ladi-headline", cfg.groom.shortName);
+  setText("#HEADLINE10 .ladi-headline", cfg.bride.fullName);
+  setText("#HEADLINE11 .ladi-headline", cfg.groom.fullName);
+  setText("#HEADLINE214 .ladi-headline", `Ngọc & Nhi`);
   setText("#HEADLINE274 .ladi-headline", `${cfg.groom.shortName} & ${cfg.bride.shortName}`);
 
   // Bố mẹ 2 bên
