@@ -21,6 +21,49 @@ document.addEventListener("DOMContentLoaded", function () {
     if (el && url) el.style.backgroundImage = `url('${url}')`;
   };
 
+  /**
+ * WEDDING-ENGINE.JS - Cập nhật thông tin & Xử lý đếm ngược (COUNTDOWN3)
+  */
+  // =========================================================
+  // XỬ LÝ ĐẾM NGƯỢC (COUNTDOWN3 / SECTION23)
+  // =========================================================
+  if (cfg.eventDateISO) {
+    const countdownEl = document.getElementById("COUNTDOWN3");
+    if (countdownEl) {
+      // 1. Gán thuộc tính data-date chuẩn cho LadiPage
+      countdownEl.setAttribute("data-date", cfg.eventDateISO);
+
+      // 2. Chạy bộ đếm ngược bằng JavaScript độc lập
+      const targetTime = new Date(cfg.eventDateISO).getTime();
+
+      function updateCountdown() {
+        const now = new Date().getTime();
+        const diff = targetTime - now;
+
+        if (diff <= 0) {
+          setText("#COUNTDOWN_ITEM9 .ladi-countdown-text span", "00");
+          setText("#COUNTDOWN_ITEM10 .ladi-countdown-text span", "00");
+          setText("#COUNTDOWN_ITEM11 .ladi-countdown-text span", "00");
+          setText("#COUNTDOWN_ITEM12 .ladi-countdown-text span", "00");
+          return;
+        }
+
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+        setText("#COUNTDOWN_ITEM9 .ladi-countdown-text span", String(days).padStart(2, "0"));
+        setText("#COUNTDOWN_ITEM10 .ladi-countdown-text span", String(hours).padStart(2, "0"));
+        setText("#COUNTDOWN_ITEM11 .ladi-countdown-text span", String(minutes).padStart(2, "0"));
+        setText("#COUNTDOWN_ITEM12 .ladi-countdown-text span", String(seconds).padStart(2, "0"));
+      }
+
+      updateCountdown();
+      setInterval(updateCountdown, 1000);
+    }
+  }
+
   // =========================================================
   // 1. CẬP NHẬT HÌNH ẢNH (IMAGES & BACKGROUNDS)
   // =========================================================

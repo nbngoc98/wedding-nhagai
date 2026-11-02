@@ -75,7 +75,7 @@ window.WEDDING_CONFIG = {
 
     // Ảnh khung lồng ghép kép (SECTION21 / SECTION22)
     framedPhoto1: "image/BAO_7187.jpg",
-    framedPhoto2: "image/BAO_6322.jpg",
+    framedPhoto2: "image/BAO_6213.jpg",
     framedPhoto3: "image/BAO_8406.jpg",
     framedPhotoMain: "image/BAO_6213_ngang.jpg",
 
