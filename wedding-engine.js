@@ -78,7 +78,7 @@ document.addEventListener("DOMContentLoaded", function () {
   // =========================================================
   // 3. CẬP NHẬT THÔNG TIN VĂN BẢN (TEXTS)
   // =========================================================
-  setText("#HEADLINE5 .ladi-headline", cfg.displayDate);
+  // setText("#HEADLINE5 .ladi-headline", cfg.displayDate);
   setText("#HEADLINE272 .ladi-headline", cfg.displayDate);
 
   // Tên ngắn & Tên đầy đủ

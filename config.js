@@ -52,7 +52,7 @@ window.WEDDING_CONFIG = {
       day: "28",
       month: "tháng 11",
       year: "năm 2026",
-      mapUrl: "https://maps.google.com/"
+      mapUrl: "https://maps.app.goo.gl/sc3GVkv67gFoDDmWA"
     }
   },
 
