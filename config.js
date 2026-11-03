@@ -65,9 +65,9 @@ window.WEDDING_CONFIG = {
   images: {
     // Background các phần chính
     mainBackground: "https://w.ladicdn.com/s750x1200/69b247cf4f6ddc0012f0ce55/background-1-20260323160459-oojeq.png",
-    heroFullImage: "image/BAO_5973.jpg",
+    heroFullImage: "https://wedding-image.vercel.app/image/BAO_5973.jpg",
     calendarBackground: "https://w.ladicdn.com/s750x600/69b247cf4f6ddc0012f0ce55/a50667d44368de9cf7c91c741c61b413-20260406171126-d3uyw.jpg",
-    thankyouBackground: "image/BAO_6183_ngang2.jpg",
+    thankyouBackground: "https://wedding-image.vercel.app/image/BAO_6183_ngang2.jpg",
 
     // Ảnh chân dung Chú rể & Cô dâu (phần giới thiệu)
     groomPortrait: "https://wedding-image.vercel.app/image/BAO_6769.jpg",
@@ -85,8 +85,8 @@ window.WEDDING_CONFIG = {
     gridPhoto3: "https://wedding-image.vercel.app/image/BAO_6453.jpg",
 
     // Ảnh đại diện trong Popup phản hồi / mừng cưới
-    popupBanner: "https://w.ladicdn.com/s800x600/69b247cf4f6ddc0012f0ce55/z8029282842691_e76a5a04463e5f8346b2ea97bc5c1188-20260719175919-gnopl.jpg",
-    popupHeaderImage: "https://w.ladicdn.com/s750x600/69b247cf4f6ddc0012f0ce55/z7712856719245_233bb94b0c96052cc995d9567f3aef70-20260410163404-oxzop.jpg"
+    // popupBanner: "https://w.ladicdn.com/s800x600/69b247cf4f6ddc0012f0ce55/z8029282842691_e76a5a04463e5f8346b2ea97bc5c1188-20260719175919-gnopl.jpg",
+    // popupHeaderImage: "https://w.ladicdn.com/s750x600/69b247cf4f6ddc0012f0ce55/z7712856719245_233bb94b0c96052cc995d9567f3aef70-20260410163404-oxzop.jpg"
   },
 
   // 5. ALBUM BỘ ẢNH CƯỚI (GALLERY)
