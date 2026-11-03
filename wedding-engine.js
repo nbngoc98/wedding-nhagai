@@ -176,8 +176,8 @@ document.addEventListener("DOMContentLoaded", function () {
   setText("#HEADLINE274 .ladi-headline", `${cfg.groom.shortName} & ${cfg.bride.shortName}`);
 
   // Bố mẹ 2 bên
-  setHtml("#HEADLINE6 .ladi-headline", `${cfg.groom.father}<br>${cfg.groom.mother}`);
-  setHtml("#HEADLINE8 .ladi-headline", `${cfg.bride.father}<br>${cfg.bride.mother}`);
+  // setHtml("#HEADLINE6 .ladi-headline", `${cfg.groom.father}<br>${cfg.groom.mother}`);
+  // setHtml("#HEADLINE8 .ladi-headline", `${cfg.bride.father}<br>${cfg.bride.mother}`);
 
   // Lời ngỏ
   setHtml("#HEADLINE144 .ladi-headline", cfg.introText ? cfg.introText.replace(/\n/g, "<br>") : "");

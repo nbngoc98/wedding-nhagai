@@ -1,348 +1,372 @@
-/* =====================================================================
-   LỜI CHÚC — gửi + hiển thị.  Cấu hình ở config.js (WEDDING_CONFIG.wishes).
-   Không cần sửa file này.
-
-   provider = "firebase" : Firestore (có form gửi lời chúc + danh sách realtime)
-   provider = "sheet"    : Google Apps Script cũ (chỉ hiển thị danh sách)
-   Nếu provider = "firebase" nhưng chưa dán firebaseConfig => tự dùng "sheet".
-   ===================================================================== */
+/* firebase-wishes.js
+ * Sổ lưu bút: gửi lời chúc lên Firestore + hiển thị realtime.
+ * Cách dùng: thêm 1 dòng trước </body>:
+ *   <script src="firebase-wishes.js"></script>
+ * và XÓA đoạn <script> firebase cũ đã dán trong thẻ <h3> "Hãy để lại đôi dòng...".
+ */
 (function () {
   "use strict";
 
-  var C = window.WEDDING_CONFIG || {};
-  var W = C.wishes || {};
-  var F = W.form || {};
-  var FB = W.firebase || {};
-  var FC = FB.firebaseConfig || {};
-
-  function has(v) { return v !== undefined && v !== null && String(v).trim() !== ""; }
-  function txt(v, d) { return has(v) ? String(v) : d; }
-
-  var T = {
-    empty:       txt(F.emptyText, "Hãy là người đầu tiên gửi lời chúc 💌"),
-    sheetEmpty:  txt(W.emptyText, "Chưa có lời chúc nào."),
-    error:       txt(W.errorText, "Không thể tải lời chúc."),
-    connect:     txt(W.connectErrorText, "Không thể kết nối hệ thống."),
-    noId:        "Chưa xác định mã thiệp."
+  var firebaseConfig = {
+    apiKey: "AIzaSyDUzJYpbOLjrgEDFGkipTKOyQFjKBrlvIM",
+    authDomain: "wedding-ngocnhi.firebaseapp.com",
+    projectId: "wedding-ngocnhi",
+    storageBucket: "wedding-ngocnhi.firebasestorage.app",
+    messagingSenderId: "1085711885103",
+    appId: "1:1085711885103:web:62995edc66a8b07db437da",
+    measurementId: "G-GC3XLMPDCH",
   };
 
-  function getList() { return document.getElementById("jmii-list"); }
+  var SDK = "https://www.gstatic.com/firebasejs/10.12.5/";
+  var GREEN = "#5d733f";
+  var COOLDOWN_MS = 30000; // chống spam: 30s / lần gửi
+  var MAX_NAME = 100,
+    MAX_MSG = 1000,
+    LIST_LIMIT = 100;
 
-  function showMessage(text) {
-    var list = getList();
-    if (!list) return;
-    list.textContent = "";
-    var d = document.createElement("div");
-    d.className = "jmii-loading";
-    d.textContent = text;
-    list.appendChild(d);
-  }
-
-  function appendWish(list, name, message) {
-    var item = document.createElement("div");
-    item.className = "jmii-wish";
-    var n = document.createElement("div");
-    n.className = "jmii-name";
-    n.textContent = name || "Khách mời";
-    var m = document.createElement("div");
-    m.className = "jmii-message";
-    m.textContent = message || "";
-    item.appendChild(n);
-    item.appendChild(m);
-    list.appendChild(item);
-  }
-
-  /* ===================================================================
-     A. GOOGLE SHEET (cũ) — chỉ hiển thị
-  =================================================================== */
-  function startSheet() {
-    var WEDDING_ID = W.weddingId || "";
-    var API = W.api || "";
-
-    function render(wishes) {
-      var list = getList();
-      if (!list) return;
-      list.textContent = "";
-      if (!wishes || !Array.isArray(wishes) || wishes.length === 0) { showMessage(T.sheetEmpty); return; }
-      wishes.forEach(function (w) { appendWish(list, w.name, w.message); });
-    }
-
-    function load() {
-      if (!has(WEDDING_ID)) { showMessage(T.noId); return; }
-      if (!has(API)) { showMessage(T.connect); return; }
-      var cb = "jmiiWishesCallback_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
-      var script = document.createElement("script");
-      function cleanup() {
-        try { delete window[cb]; } catch (e) { window[cb] = null; }
-        if (script.parentNode) script.parentNode.removeChild(script);
-      }
-      window[cb] = function (data) {
-        if (data && data.success === true) render(data.wishes);
-        else { console.error("JMII API ERROR:", data); showMessage(T.error); }
-        cleanup();
-      };
-      script.onerror = function () { showMessage(T.connect); cleanup(); };
-      script.src = API + (API.indexOf("?") > -1 ? "&" : "?") + "weddingId=" + encodeURIComponent(WEDDING_ID) +
-        "&callback=" + encodeURIComponent(cb) + "&t=" + Date.now();
-      script.async = true;
-      document.head.appendChild(script);
-    }
-
-    setTimeout(load, 1000);
-  }
-
-  /* ===================================================================
-     B. FIREBASE FIRESTORE
-  =================================================================== */
-  var MAX_NAME = Number(F.maxName) > 0 ? Number(F.maxName) : 100;
-  var MAX_MSG = Number(F.maxMessage) > 0 ? Number(F.maxMessage) : 1000;
-  var COOLDOWN = Number(F.cooldownSeconds) >= 0 ? Number(F.cooldownSeconds) : 15;
-
-  var FT = {
-    title:       txt(F.title, "Gửi lời chúc"),
-    caption:     txt(F.caption, "Hãy để lại đôi dòng yêu thương cho cô dâu & chú rể"),
-    namePh:      txt(F.namePlaceholder, "Tên của bạn"),
-    messagePh:   txt(F.messagePlaceholder, "Lời chúc của bạn..."),
-    sendBtn:     txt(F.sendButton, "💌 Gửi"),
-    sending:     txt(F.sendingText, "⏳ Đang gửi..."),
-    success:     txt(F.successText, "Gửi lời chúc thành công 💌"),
-    needInfo:    txt(F.needInfoText, "Vui lòng nhập đầy đủ tên và lời chúc."),
-    tooLong:     txt(F.tooLongText, "Tên tối đa " + MAX_NAME + " ký tự, lời chúc tối đa " + MAX_MSG + " ký tự."),
-    sendError:   txt(F.errorText, "Gửi chưa thành công. Vui lòng thử lại."),
-    wait:        txt(F.waitText, "Bạn vừa gửi xong, vui lòng đợi vài giây rồi gửi tiếp nhé.")
-  };
-
+  /* ---------- tiện ích ---------- */
   function loadScript(src) {
-    return new Promise(function (resolve, reject) {
+    return new Promise(function (ok, fail) {
       var s = document.createElement("script");
       s.src = src;
-      s.async = false;
-      s.onload = resolve;
-      s.onerror = function () { reject(new Error("Không tải được " + src)); };
+      s.onload = ok;
+      s.onerror = fail;
       document.head.appendChild(s);
     });
   }
 
-  function ensureSdk() {
-    if (window.firebase && window.firebase.firestore) return Promise.resolve();
-    var v = txt(FB.sdkVersion, "10.12.2");
-    var base = "https://www.gstatic.com/firebasejs/" + v + "/";
-    return loadScript(base + "firebase-app-compat.js").then(function () {
-      return loadScript(base + "firebase-firestore-compat.js");
+  function timeAgo(date) {
+    if (!date) return "vừa xong";
+    var s = Math.max(0, (Date.now() - date.getTime()) / 1000);
+    if (s < 60) return "vừa xong";
+    if (s < 3600) return Math.floor(s / 60) + " phút trước";
+    if (s < 86400) return Math.floor(s / 3600) + " giờ trước";
+    if (s < 86400 * 30) return Math.floor(s / 86400) + " ngày trước";
+    return date.toLocaleDateString("vi-VN");
+  }
+
+  function initial(name) {
+    var t = (name || "K").trim();
+    return t ? t.charAt(0).toUpperCase() : "K";
+  }
+
+  /* ---------- CSS ---------- */
+  function injectCSS() {
+    var css = [
+      "#wishes-section{width:420px;margin:0 auto;padding:36px 20px 40px;position:relative;",
+      "background:#f6f1e7 url('https://w.ladicdn.com/s750x850/69b247cf4f6ddc0012f0ce55/background-1-20260323160459-oojeq.png') center/cover;",
+      "font-family:'TESQSSRUdVTEFSLlRURg','Lora',serif;color:" +
+        GREEN +
+        ";box-sizing:border-box}",
+      "#wishes-section *{box-sizing:border-box;-webkit-user-select:text;user-select:text}",
+      "#wishes-section .ws-title{font-family:'VVZOSGhVGFMSdGY','Lora',cursive;font-size:38px;text-align:center;line-height:1.3}",
+      "#wishes-section .ws-sub{text-align:center;font-size:13px;margin:4px 0 18px;opacity:.85}",
+      "#wish-list{max-height:460px;overflow-y:auto;padding:4px 4px 4px 0;display:flex;flex-direction:column;gap:12px;",
+      "scrollbar-width:thin;scrollbar-color:" + GREEN + " transparent}",
+      "#wish-list::-webkit-scrollbar{width:5px}",
+      "#wish-list::-webkit-scrollbar-thumb{background:" +
+        GREEN +
+        ";border-radius:5px}",
+      ".wish-item{display:flex;gap:12px;padding:14px 14px;border:1px solid " +
+        GREEN +
+        ";border-radius:18px;",
+      "background:rgba(255,255,255,.72);backdrop-filter:blur(2px);animation:wishIn .5s ease both}",
+      ".wish-avatar{flex:0 0 40px;height:40px;border-radius:50%;background:" +
+        GREEN +
+        ";color:#fff;",
+      "display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px}",
+      ".wish-body{min-width:0;flex:1}",
+      ".wish-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}",
+      ".wish-name{font-weight:700;font-size:15px;word-break:break-word}",
+      ".wish-time{font-size:11px;opacity:.65;white-space:nowrap}",
+      ".wish-msg{margin-top:4px;font-size:14px;line-height:1.55;white-space:pre-wrap;word-break:break-word}",
+      ".wish-empty{text-align:center;font-size:14px;padding:22px 0;opacity:.85}",
+      "#wishes-count{display:inline-block;margin-left:6px;padding:0 9px;border-radius:99px;background:" +
+        GREEN +
+        ";color:#fff;font-size:12px}",
+      "#wish-toast{position:fixed;left:50%;bottom:90px;transform:translate(-50%,20px);opacity:0;pointer-events:none;",
+      "background:" +
+        GREEN +
+        ";color:#fff;padding:12px 22px;border-radius:99px;font-size:14px;z-index:2147483000;",
+      "transition:all .35s ease;max-width:90vw;text-align:center;font-family:'TESQSSRUdVTEFSLlRURg','Lora',serif}",
+      "#wish-toast.show{opacity:1;transform:translate(-50%,0)}",
+      "#wish-toast.err{background:#a94442}",
+      ".wish-heart{position:fixed;bottom:-30px;z-index:2147483000;pointer-events:none;animation:wishFloat 2.6s ease-in forwards}",
+      "@keyframes wishIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}",
+      "@keyframes wishFloat{to{transform:translateY(-105vh) rotate(25deg);opacity:0}}",
+    ].join("");
+    var st = document.createElement("style");
+    st.textContent = css;
+    document.head.appendChild(st);
+  }
+
+  /* ---------- UI: khu vực hiển thị lời chúc ---------- */
+  function buildSection() {
+    var sec = document.createElement("section");
+    sec.id = "wishes-section";
+
+    var title = document.createElement("div");
+    title.className = "ws-title";
+    title.textContent = "Lời chúc";
+    var count = document.createElement("span");
+    count.id = "wishes-count";
+    count.style.display = "none";
+    // title.appendChild(count);
+
+    var sub = document.createElement("div");
+    sub.className = "ws-sub";
+    sub.textContent = "Những lời yêu thương dành cho Ngọc & Nhi";
+
+    var list = document.createElement("div");
+    list.id = "wish-list";
+    var loading = document.createElement("div");
+    loading.className = "wish-empty";
+    loading.textContent = "Đang tải lời chúc…";
+    list.appendChild(loading);
+
+    sec.append(title, sub, list);
+
+    var anchor = document.getElementById("SECTION18"); // "Thank you"
+    if (anchor && anchor.parentNode)
+      anchor.parentNode.insertBefore(sec, anchor);
+    else document.querySelector(".ladi-wraper").appendChild(sec);
+    return { list: list, count: count };
+  }
+
+  function renderWishes(ui, snapshot) {
+    ui.list.replaceChildren();
+    if (snapshot.empty) {
+      ui.count.style.display = "none";
+      var e = document.createElement("div");
+      e.className = "wish-empty";
+      e.textContent = "Hãy là người đầu tiên gửi lời chúc 💌";
+      ui.list.appendChild(e);
+      return;
+    }
+    ui.count.textContent =
+      snapshot.size >= LIST_LIMIT ? LIST_LIMIT + "+" : snapshot.size;
+    ui.count.style.display = "inline-block";
+
+    snapshot.forEach(function (doc) {
+      var w = doc.data({ serverTimestamps: "estimate" });
+      var ts = w.createdAt && w.createdAt.toDate ? w.createdAt.toDate() : null;
+
+      var item = document.createElement("div");
+      item.className = "wish-item";
+
+      var av = document.createElement("div");
+      av.className = "wish-avatar";
+      av.textContent = initial(w.name);
+
+      var body = document.createElement("div");
+      body.className = "wish-body";
+
+      var head = document.createElement("div");
+      head.className = "wish-head";
+      var name = document.createElement("span");
+      name.className = "wish-name";
+      name.textContent = w.name || "Khách mời";
+      var time = document.createElement("span");
+      time.className = "wish-time";
+      time.textContent = timeAgo(ts);
+      head.append(name, time);
+
+      var msg = document.createElement("div");
+      msg.className = "wish-msg";
+      msg.textContent = w.message || "";
+
+      body.append(head, msg);
+      item.append(av, body);
+      ui.list.appendChild(item);
     });
   }
 
-  /* --- Pháo hoa khi gửi thành công --- */
-  function showFireworks() {
-    if (F.fireworks === false) return;
-    try {
-      if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    } catch (e) { }
-    var w = window.innerWidth, h = window.innerHeight;
-    var dpr = Math.min(window.devicePixelRatio || 1, 2);
-    var cv = document.createElement("canvas");
-    cv.style.cssText = "position:fixed;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:2147483000";
-    cv.width = w * dpr; cv.height = h * dpr;
-    var ctx = cv.getContext && cv.getContext("2d");
-    if (!ctx) return;
-    document.body.appendChild(cv);
-    ctx.scale(dpr, dpr);
-    var colors = ["#881D1D", "#d4a24c", "#e8b4b8", "#f6e3b4", "#c0504d", "#ffffff"];
-    var parts = [], t0 = null, fired = 0;
-    var spots = [[0.28, 0.32, 0], [0.72, 0.26, 260], [0.5, 0.42, 520]];
-    function burst(x, y) {
-      for (var i = 0; i < 48; i++) {
-        var a = Math.random() * Math.PI * 2, s = 1.5 + Math.random() * 4.5;
-        parts.push({ x: x, y: y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 1,
-          decay: 0.012 + Math.random() * 0.01, c: colors[(Math.random() * colors.length) | 0], r: 1.5 + Math.random() * 2 });
-      }
+  /* ---------- thông báo + hiệu ứng ---------- */
+  function toast(text, isErr) {
+    var t = document.getElementById("wish-toast");
+    if (!t) {
+      t = document.createElement("div");
+      t.id = "wish-toast";
+      document.body.appendChild(t);
     }
-    function frame(now) {
-      if (t0 === null) t0 = now;
-      var el = now - t0;
-      while (fired < spots.length && el >= spots[fired][2]) { burst(w * spots[fired][0], h * spots[fired][1]); fired++; }
-      ctx.clearRect(0, 0, w, h);
-      parts = parts.filter(function (p) { return p.life > 0; });
-      parts.forEach(function (p) {
-        p.x += p.vx; p.y += p.vy; p.vy += 0.06; p.vx *= 0.985; p.life -= p.decay;
-        ctx.globalAlpha = Math.max(p.life, 0);
-        ctx.fillStyle = p.c;
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
-      });
-      ctx.globalAlpha = 1;
-      if (fired < spots.length || parts.length) window.requestAnimationFrame(frame);
-      else if (cv.parentNode) cv.parentNode.removeChild(cv);
-    }
-    window.requestAnimationFrame(frame);
-  }
-  window.showFireworks = showFireworks;
-
-  /* --- Form gửi lời chúc (chèn ngay trước khung "YOUR WISHES") --- */
-  var FORM_CSS =
-    ".wf-section{position:relative;width:100%;box-sizing:border-box;padding:38px 28px 34px;text-align:center;color:#881D1D;" +
-    "background-color:#fff;background-size:cover;background-position:center top;background-repeat:no-repeat}" +
-    ".wf-title{font-family:Georgia,serif;font-size:26px;letter-spacing:2px;line-height:1.3;text-transform:uppercase}" +
-    ".wf-line{width:70px;height:1px;background:#881D1D;opacity:.55;margin:12px auto}" +
-    ".wf-caption{font-family:'Lora',Georgia,serif;font-size:13px;line-height:1.7;margin-bottom:18px}" +
-    ".wf-form{display:flex;flex-direction:column;gap:12px;text-align:left}" +
-    ".wf-input{width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid rgba(136,29,29,.45);border-radius:10px;" +
-    "background:rgba(255,255,255,.75);color:#4a1010;font-family:'Lora',Georgia,serif;font-size:12px;line-height:1.5;outline:none;" +
-    "-webkit-appearance:none;appearance:none;-webkit-user-select:text;-moz-user-select:text;-ms-user-select:text;user-select:text}" +
-    ".wf-input::placeholder{color:rgba(136,29,29,.55)}" +
-    ".wf-input:focus{border-color:#881D1D;box-shadow:0 0 0 3px rgba(136,29,29,.12)}" +
-    "textarea.wf-input{min-height:120px;resize:vertical}" +
-    ".wf-btn{align-self:center;min-width:150px;padding:12px 30px;border:0;border-radius:999px;background:#881D1D;color:#fff;" +
-    "font-family:'Lora',Georgia,serif;font-size:12px;letter-spacing:.5px;cursor:pointer;transition:opacity .2s,transform .1s}" +
-    ".wf-btn:active{transform:scale(.97)}" +
-    ".wf-btn[disabled]{opacity:.6;cursor:default}" +
-    ".wf-status{min-height:20px;margin-top:2px;text-align:center;font-family:'Lora',Georgia,serif;font-size:13px;line-height:1.6}" +
-    ".wf-status.ok{color:#2f6b3a}.wf-status.err{color:#b3261e}";
-
-  function buildForm() {
-    var anchor = document.getElementById("SECTION8");
-    var parent = anchor ? anchor.parentNode : null;
-    if (!parent) { parent = document.querySelector(".ladi-wraper") || document.body; }
-
-    var style = document.createElement("style");
-    style.id = "wishes-form-style";
-    style.appendChild(document.createTextNode(FORM_CSS));
-    document.head.appendChild(style);
-
-    var sec = document.createElement("div");
-    sec.id = "wishes-form";
-    sec.className = "wf-section";
-    var bg = C.decor && C.decor.content && C.decor.content.plasterTexture;
-    if (has(bg)) sec.style.backgroundImage = 'url("' + String(bg).replace(/"/g, "%22") + '")';
-
-    function el(tag, cls, text) {
-      var e = document.createElement(tag);
-      if (cls) e.className = cls;
-      if (text !== undefined) e.textContent = text;
-      return e;
-    }
-
-    sec.appendChild(el("div", "wf-title", FT.title));
-    sec.appendChild(el("div", "wf-line"));
-    sec.appendChild(el("div", "wf-caption", FT.caption));
-
-    var form = el("form", "wf-form");
-    form.setAttribute("novalidate", "novalidate");
-    form.setAttribute("autocomplete", "off");
-
-    var name = el("input", "wf-input");
-    name.type = "text"; name.id = "wf-name"; name.name = "wf-name";
-    name.placeholder = FT.namePh; name.maxLength = MAX_NAME;
-    name.setAttribute("aria-label", FT.namePh);
-    name.setAttribute("enterkeyhint", "next");
-    if (F.prefillGuestName !== false && window.WeddingGuest && window.WeddingGuest.fromUrl) name.value = window.WeddingGuest.name;
-
-    var msg = el("textarea", "wf-input");
-    msg.id = "wf-message"; msg.name = "wf-message";
-    msg.placeholder = FT.messagePh; msg.maxLength = MAX_MSG; msg.rows = 5;
-    msg.setAttribute("aria-label", FT.messagePh);
-
-    var btn = el("button", "wf-btn", FT.sendBtn);
-    btn.type = "submit"; btn.id = "wf-send";
-
-    var status = el("div", "wf-status");
-    status.setAttribute("role", "status");
-    status.setAttribute("aria-live", "polite");
-
-    form.appendChild(name); form.appendChild(msg); form.appendChild(btn); form.appendChild(status);
-    sec.appendChild(form);
-
-    if (anchor) parent.insertBefore(sec, anchor); else parent.appendChild(sec);
-    return { form: form, name: name, msg: msg, btn: btn, status: status };
+    t.textContent = text;
+    t.className = (isErr ? "err " : "") + "show";
+    clearTimeout(t._h);
+    t._h = setTimeout(function () {
+      t.className = isErr ? "err" : "";
+    }, 3200);
   }
 
-  function startFirebase() {
-    var ui = buildForm();
-    showMessage(txt(W.loadingText, "Đang tải lời chúc..."));
-
-    function setStatus(text, kind) {
-      ui.status.textContent = text || "";
-      ui.status.className = "wf-status" + (kind ? " " + kind : "");
+  function hearts() {
+    if (typeof window.showFireworks === "function") {
+      window.showFireworks();
+      return;
     }
+    var icons = ["💚", "💌", "🤍", "✨", "💐"];
+    for (var i = 0; i < 18; i++) {
+      (function (i) {
+        setTimeout(function () {
+          var h = document.createElement("div");
+          h.className = "wish-heart";
+          h.textContent = icons[i % icons.length];
+          h.style.left = Math.random() * 95 + "vw";
+          h.style.fontSize = 18 + Math.random() * 20 + "px";
+          h.style.animationDuration = 2 + Math.random() * 1.8 + "s";
+          document.body.appendChild(h);
+          setTimeout(function () {
+            h.remove();
+          }, 4200);
+        }, i * 90);
+      })(i);
+    }
+  }
 
-    ensureSdk().then(function () {
-      var fb = window.firebase;
-      if (!fb.apps || !fb.apps.length) fb.initializeApp(FC);
-      var db = fb.firestore();
-      var wishesRef = db.collection(txt(FB.collection, "wishes"));
-      var limit = Number(FB.limit) > 0 ? Number(FB.limit) : 200;
+  /* ---------- gửi lời chúc ---------- */
+  function setupForm(wishesRef, firebase) {
+    var nameInput = document.querySelector("#FORM_ITEM18 input");
+    var msgInput = document.querySelector("#FORM_ITEM19 textarea");
+    var btn = document.getElementById("BUTTON10");
+    var btnText = document.querySelector("#BUTTON_TEXT10 .ladi-headline");
+    var form = document.querySelector("#FORM5 form");
+    if (!nameInput || !msgInput || !btn) return;
 
-      // Danh sách tự cập nhật theo thời gian thực
-      wishesRef.orderBy("createdAt", "desc").limit(limit).onSnapshot(
-        function (snapshot) {
-          var list = getList();
-          if (!list) return;
-          list.textContent = "";
-          if (snapshot.empty) { showMessage(T.empty); return; }
-          snapshot.forEach(function (doc) {
-            var w = doc.data() || {};
-            appendWish(list, w.name, w.message);
-          });
-        },
-        function (error) {
-          console.error("Lỗi tải lời chúc:", error);
-          showMessage(T.error);
-        }
-      );
+    nameInput.maxLength = MAX_NAME;
+    msgInput.maxLength = MAX_MSG;
+    var busy = false;
+    var original = btnText ? btnText.textContent : "XÁC NHẬN";
 
-      var lastSent = 0, busy = false;
-      ui.form.addEventListener("submit", function (ev) {
-        ev.preventDefault();
-        if (busy) return;
+    // honeypot chống bot
+    var trap = document.createElement("input");
+    trap.type = "text";
+    trap.tabIndex = -1;
+    trap.autocomplete = "off";
+    trap.style.cssText =
+      "position:absolute;left:-9999px;opacity:0;height:0;width:0";
+    form.appendChild(trap);
 
-        var name = ui.name.value.trim();
-        var message = ui.msg.value.trim();
-        if (!name || !message) { setStatus(FT.needInfo, "err"); return; }
-        if (name.length > MAX_NAME || message.length > MAX_MSG) { setStatus(FT.tooLong, "err"); return; }
-        if (COOLDOWN > 0 && lastSent && Date.now() - lastSent < COOLDOWN * 1000) { setStatus(FT.wait, "err"); return; }
+    function send() {
+      if (busy) return;
+      var name = nameInput.value.trim();
+      var message = msgInput.value.trim();
 
-        busy = true;
-        ui.btn.disabled = true;
-        ui.btn.textContent = FT.sending;
-        setStatus("");
+      if (trap.value) return; // bot
+      if (!name || !message)
+        return toast("Vui lòng nhập đầy đủ tên và lời chúc.", true);
+      if (name.length > MAX_NAME || message.length > MAX_MSG)
+        return toast(
+          "Tên tối đa " +
+            MAX_NAME +
+            " ký tự, lời chúc tối đa " +
+            MAX_MSG +
+            " ký tự.",
+          true,
+        );
 
-        wishesRef.add({
+      var last = 0;
+      try {
+        last = +localStorage.getItem("wish_last") || 0;
+      } catch (e) {}
+      if (Date.now() - last < COOLDOWN_MS)
+        return toast("Bạn vừa gửi xong, vui lòng đợi một chút nhé 💚", true);
+
+      busy = true;
+      if (btnText) btnText.textContent = "ĐANG GỬI...";
+
+      wishesRef
+        .add({
           name: name,
           message: message,
-          createdAt: fb.firestore.FieldValue.serverTimestamp()
-        }).then(function () {
-          lastSent = Date.now();
-          ui.msg.value = "";
-          setStatus(FT.success, "ok");
-          showFireworks();
-        }).catch(function (error) {
-          console.error("Lỗi gửi lời chúc:", error);
-          setStatus(FT.sendError, "err");
-        }).then(function () {
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        })
+        .then(function () {
+          try {
+            localStorage.setItem("wish_last", String(Date.now()));
+          } catch (e) {}
+          nameInput.value = "";
+          msgInput.value = "";
+          hearts();
+          toast("Cảm ơn bạn đã gửi lời chúc 💌");
+          var l = document.getElementById("wish-list");
+          if (l) l.scrollTo({ top: 0, behavior: "smooth" });
+        })
+        .catch(function (err) {
+          console.error("Lỗi gửi lời chúc:", err);
+          toast("Gửi chưa thành công, vui lòng thử lại.", true);
+        })
+        .finally(function () {
           busy = false;
-          ui.btn.disabled = false;
-          ui.btn.textContent = FT.sendBtn;
+          if (btnText) btnText.textContent = original;
         });
-      });
-    }).catch(function (err) {
-      console.error("Không khởi động được Firebase:", err);
-      showMessage(T.connect);
-      setStatus(T.connect, "err");
-    });
-  }
-
-  /* ===================================================================
-     Chạy
-  =================================================================== */
-  function start() {
-    var wantFirebase = String(W.provider || "firebase").toLowerCase() === "firebase";
-    var ready = has(FC.apiKey) && has(FC.projectId);
-    if (wantFirebase && ready) startFirebase();
-    else {
-      if (wantFirebase) console.warn("[wishes] Chưa dán firebaseConfig trong config.js => dùng Google Sheet (chỉ hiển thị, chưa có form gửi).");
-      startSheet();
     }
+
+    // chặn handler mặc định của LadiPage (nó sẽ gửi form về server Ladi)
+    document.addEventListener(
+      "click",
+      function (e) {
+        if (e.target.closest && e.target.closest("#BUTTON10")) {
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          send();
+        }
+      },
+      true,
+    );
+    form.addEventListener(
+      "submit",
+      function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        send();
+      },
+      true,
+    );
   }
 
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+  /* ---------- khởi động ---------- */
+  function start() {
+    injectCSS();
+    var ui = buildSection();
+
+    var chain =
+      window.firebase && firebase.firestore
+        ? Promise.resolve()
+        : loadScript(SDK + "firebase-app-compat.js").then(function () {
+            return loadScript(SDK + "firebase-firestore-compat.js");
+          });
+
+    chain
+      .then(function () {
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        var db = firebase.firestore();
+        var wishesRef = db.collection("wishes");
+
+        wishesRef
+          .orderBy("createdAt", "desc")
+          .limit(LIST_LIMIT)
+          .onSnapshot(
+            function (snap) {
+              renderWishes(ui, snap);
+            },
+            function (err) {
+              console.error("Lỗi tải lời chúc:", err);
+              ui.list.replaceChildren();
+              var e = document.createElement("div");
+              e.className = "wish-empty";
+              e.textContent = "Không thể tải lời chúc. Vui lòng thử lại sau.";
+              ui.list.appendChild(e);
+            },
+          );
+        setupForm(wishesRef, firebase);
+      })
+      .catch(function (err) {
+        console.error("Không tải được Firebase SDK:", err);
+        ui.list.textContent = "Không thể kết nối. Vui lòng thử lại sau.";
+      });
+  }
+
+  if (document.readyState === "loading")
+    document.addEventListener("DOMContentLoaded", start);
   else start();
 })();
