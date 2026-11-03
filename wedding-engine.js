@@ -109,13 +109,54 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // =========================================================
-  // 2. CẬP NHẬT ALBUM ẢNH (GALLERY)
+  // 2. CẬP NHẬT ALBUM ẢNH (GALLERY) - HỖ TRỢ BẤT KỲ SỐ LƯỢNG ẢNH NÀO
   // =========================================================
-  if (Array.isArray(cfg.gallery)) {
-    cfg.gallery.forEach((url, idx) => {
-      setBgImage(`#GALLERY3 .ladi-gallery-view-item[data-index="${idx}"]`, url);
-      setBgImage(`#GALLERY3 .ladi-gallery-control-item[data-index="${idx}"]`, url);
-    });
+  if (Array.isArray(cfg.gallery) && cfg.gallery.length > 0) {
+    const galleryEl = document.getElementById("GALLERY3");
+    if (galleryEl) {
+      const viewContainer = galleryEl.querySelector(".ladi-gallery-view");
+      const controlContainer = galleryEl.querySelector(".ladi-gallery-control-box");
+
+      // Lấy danh sách item mẫu hiện có
+      let viewItems = Array.from(galleryEl.querySelectorAll(".ladi-gallery-view-item"));
+      let controlItems = Array.from(galleryEl.querySelectorAll(".ladi-gallery-control-item"));
+
+      // Nếu số lượng ảnh config nhiều hơn số item mẫu trong HTML -> Tự tạo thêm item
+      if (viewItems.length > 0 && viewItems.length < cfg.gallery.length) {
+        const viewTemplate = viewItems[0];
+        const controlTemplate = controlItems[0];
+
+        for (let i = viewItems.length; i < cfg.gallery.length; i++) {
+          if (viewContainer && viewTemplate) {
+            const newView = viewTemplate.cloneNode(true);
+            newView.setAttribute("data-index", i);
+            newView.classList.remove("selected", "active");
+            viewContainer.appendChild(newView);
+          }
+          if (controlContainer && controlTemplate) {
+            const newControl = controlTemplate.cloneNode(true);
+            newControl.setAttribute("data-index", i);
+            newControl.classList.remove("selected", "active");
+            controlContainer.appendChild(newControl);
+          }
+        }
+      }
+
+      // Cập nhật background URL cho tất cả ảnh
+      cfg.gallery.forEach((url, idx) => {
+        setBgImage(`#GALLERY3 .ladi-gallery-view-item[data-index="${idx}"]`, url);
+        setBgImage(`#GALLERY3 .ladi-gallery-control-item[data-index="${idx}"]`, url);
+      });
+
+      // Kích hoạt lại (Re-init) LadiGallery của LadiPage nếu có
+      if (window.LadiPageScript && typeof window.LadiPageScript.runGallery === "function") {
+        try {
+          window.LadiPageScript.runGallery("GALLERY3");
+        } catch (e) {
+          console.log("Re-init gallery notice:", e);
+        }
+      }
+    }
   }
 
   // =========================================================
