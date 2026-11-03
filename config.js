@@ -75,7 +75,7 @@ window.WEDDING_CONFIG = {
 
     // Ảnh khung lồng ghép kép (SECTION21 / SECTION22)
     framedPhoto1: "https://wedding-image.vercel.app/image/BAO_7187.jpg",
-    framedPhoto2: "https://wedding-image.vercel.app/image/BAO_6213.jpg",
+    framedPhoto2: "https://wedding-image.vercel.app/image/BAO_6322.jpg",
     framedPhoto3: "https://wedding-image.vercel.app/image/BAO_8406.jpg",
     framedPhotoMain: "https://wedding-image.vercel.app/image/BAO_6213_ngang.jpg",
 
