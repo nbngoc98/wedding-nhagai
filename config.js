@@ -46,7 +46,7 @@ window.WEDDING_CONFIG = {
     },
     tiecCuoi: {
       title: "TIỆC CHUNG VUI",
-      locationName: "NHÀ HÀNG VƯỜNG CAU",
+      locationName: "NHÀ HÀNG VƯỜN CAU",
       address: "Sảnh 4 SUNFLOWER - 360 Đ. Phan Văn Trị, TP. HCM",
       timeText: "Thân mời bạn đến dự tiệc cưới<br>Được tổ chức vào 18:00, Thứ bảy",
       day: "28",
